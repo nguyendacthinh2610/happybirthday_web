@@ -656,6 +656,7 @@ export default function FloatingPillBar({
               </div>
             )}
           </motion.div>
+          </>
         )}
       </AnimatePresence>
 

@@ -105,7 +105,7 @@ export default function CardPreview({ cardState, palette, updateField, isViewMod
       {/* Grid of 2 Folding Wings */}
       <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-stone-300/40">
         {/* ── LEFT WING (CÁNH TRÁI): Polaroid Photo & Vintage Stamps ── */}
-        <div className="p-6 sm:p-8 flex flex-col justify-between items-center relative min-h-[460px] bg-stone-50/40">
+        <div className="p-4 sm:p-8 flex flex-col justify-between items-center relative min-h-[400px] sm:min-h-[460px] bg-stone-50/40">
           {/* Top Postmark and Stamp Row */}
           <div className="w-full flex items-start justify-between">
             <PostmarkStamp text="PARIS R.P." date="14 NOV 2026" />
@@ -169,7 +169,7 @@ export default function CardPreview({ cardState, palette, updateField, isViewMod
         </div>
 
         {/* ── RIGHT WING (CÁNH PHẢI): Title, Wishes, Cake & Candles ── */}
-        <div className="p-6 sm:p-8 flex flex-col justify-between items-center text-center relative min-h-[460px]">
+        <div className="p-4 sm:p-8 flex flex-col justify-between items-center text-center relative min-h-[400px] sm:min-h-[460px]">
           {/* Inner Editorial Double-line Frame */}
           <div className="absolute inset-3 editorial-frame rounded-sm pointer-events-none" />
 
