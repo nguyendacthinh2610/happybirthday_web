@@ -111,120 +111,149 @@ export default function FloatingPillBar({
   return (
     <>
       {/* ═══════════════════════════════════════════════════════
-          POPOVER FLOATING CARD (Xuất hiện phía trên Pill-bar)
+          POPOVER FLOATING CARD (Xuất hiện phía trên Pill-bar trên PC, Bottom Sheet trên Điện Thoại)
           ═══════════════════════════════════════════════════════ */}
       <AnimatePresence>
         {activePopover && (
-          <motion.div
-            ref={popoverRef}
-            initial={{ opacity: 0, y: 15, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.96 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 w-[94%] sm:w-[460px] stationery-popover rounded-2xl p-5 shadow-2xl select-none"
-          >
-            {/* Popover Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-stone-200/80 mb-4">
-              <h3 className="text-xs font-sans font-bold text-stone-800">
-                {activePopover === 'write' && 'Viết Lời Chúc & Tên Người Nhận'}
-                {activePopover === 'palette' && 'Chất Liệu Giấy & Bảng Màu Tối Giản'}
-                {activePopover === 'photo' && 'Khung Ảnh Polaroid & Washi Tape'}
-                {activePopover === 'candles' && 'Số Lượng Ngọn Nến Trên Bánh'}
-                {activePopover === 'share' && 'Xuất Thiệp In & Chia Sẻ Trực Tiếp'}
-                {activePopover === 'saved' && 'Bộ Sưu Tập Thiệp Đã Lưu'}
-              </h3>
-              <button
+          <>
+            {/* Mobile / Desktop Backdrop Overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setActivePopover(null)}
+              className="fixed inset-0 bg-stone-900/35 backdrop-blur-[2px] z-40 transition-opacity"
+            />
+
+            <motion.div
+              ref={popoverRef}
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 40 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+              className="fixed inset-x-0 bottom-0 sm:bottom-24 sm:left-1/2 sm:-translate-x-1/2 z-50 w-full sm:w-[480px] max-h-[85vh] sm:max-h-[82vh] overflow-y-auto stationery-popover rounded-t-3xl sm:rounded-2xl p-4 sm:p-5 pb-8 sm:pb-5 shadow-[0_-12px_40px_rgba(0,0,0,0.22)] select-none"
+            >
+              {/* Mobile Sheet Drag Indicator Handle */}
+              <div
                 onClick={() => setActivePopover(null)}
-                className="p-1 rounded-full hover:bg-stone-200/60 text-stone-500 hover:text-stone-800 transition-colors"
-              >
-                <X size={15} />
-              </button>
-            </div>
+                className="w-12 h-1.5 bg-stone-300 hover:bg-stone-400 rounded-full mx-auto mb-3 sm:hidden cursor-pointer"
+                title="Kéo hoặc nhấp để đóng"
+              />
 
-            {/* POPOVER 1: VIẾT THIỆP */}
-            {activePopover === 'write' && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2">
-                    <label className="text-[11px] font-sans text-[11px] font-semibold text-stone-600 block mb-1">
-                      Tên Người Nhận
-                    </label>
-                    <input
-                      type="text"
-                      value={cardState.recipientName}
-                      onChange={(e) => updateField('recipientName', e.target.value)}
-                      placeholder="VD: Minh Thư, Hoàng Nam..."
-                      className="editorial-input"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-sans text-[11px] font-semibold text-stone-600 block mb-1">
-                      Số Tuổi
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="100"
-                      value={cardState.age || ''}
-                      onChange={(e) => updateField('age', e.target.value)}
-                      placeholder="24"
-                      className="editorial-input"
-                    />
-                  </div>
-                </div>
-
-                {/* Font Selector */}
-                <div>
-                  <label className="text-[11px] font-sans text-[11px] font-semibold text-stone-600 block mb-1.5">
-                    Kiểu Chữ Viết Tay
-                  </label>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {FONT_OPTIONS.map((f) => (
-                      <button
-                        key={f.id}
-                        onClick={() => updateField('fontFamily', f.id)}
-                        className={`p-1.5 rounded-lg border text-left transition-all ${(cardState.fontFamily || 'charm') === f.id
-                            ? 'border-stone-800 bg-stone-900 text-stone-100'
-                            : 'border-stone-200 bg-white hover:bg-stone-50 text-stone-700'
-                          }`}
-                      >
-                        <div className="text-[10px] font-medium truncate">{f.name.split(' ')[0]}</div>
-                        <div className={`text-sm ${f.class} truncate`}>{f.preview}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Tone Chips for Wish Generation */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[11px] font-sans text-[11px] font-semibold text-stone-600">
-                      Gợi Ý Lời Chúc Mẫu
-                    </label>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    {WISH_STYLES.map((ws) => (
-                      <button
-                        key={ws.id}
-                        onClick={() => handleGenerateWishTone(ws.id)}
-                        className="px-2.5 py-1 rounded-full bg-stone-200/60 hover:bg-stone-300/70 text-stone-700 text-xs font-sans transition-colors flex items-center gap-1"
-                      >
-                        <Sparkles size={11} className="text-[#B45339]" />
-                        <span>{ws.label}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  <textarea
-                    rows={3}
-                    value={cardState.wishMessage}
-                    onChange={(e) => updateField('wishMessage', e.target.value)}
-                    placeholder="Viết lời chúc từ trái tim của bạn..."
-                    className="editorial-input resize-none font-sans leading-relaxed"
-                  />
-                </div>
+              {/* Popover Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-stone-200/80 mb-3.5">
+                <h3 className="text-xs font-sans font-bold text-stone-800 tracking-wide uppercase">
+                  {activePopover === 'write' && 'Viết Lời Chúc & Tên Người Nhận'}
+                  {activePopover === 'palette' && 'Chất Liệu Giấy & Bảng Màu Tối Giản'}
+                  {activePopover === 'photo' && 'Khung Ảnh Polaroid & Washi Tape'}
+                  {activePopover === 'candles' && 'Số Lượng Ngọn Nến Trên Bánh'}
+                  {activePopover === 'share' && 'Xuất Thiệp In & Chia Sẻ Trực Tiếp'}
+                  {activePopover === 'saved' && 'Bộ Sưu Tập Thiệp Đã Lưu'}
+                </h3>
+                <button
+                  onClick={() => setActivePopover(null)}
+                  className="p-1 rounded-full hover:bg-stone-200/60 text-stone-500 hover:text-stone-800 transition-colors"
+                  title="Đóng bảng chỉnh"
+                >
+                  <X size={16} />
+                </button>
               </div>
-            )}
+
+              {/* POPOVER 1: VIẾT THIỆP */}
+              {activePopover === 'write' && (
+                <div className="space-y-3.5">
+                  <div className="grid grid-cols-3 gap-2.5">
+                    <div className="col-span-2">
+                      <label className="text-[11px] font-sans font-semibold text-stone-600 block mb-1">
+                        Tên Người Nhận
+                      </label>
+                      <input
+                        type="text"
+                        value={cardState.recipientName}
+                        onChange={(e) => updateField('recipientName', e.target.value)}
+                        placeholder="VD: Minh Thư, Hoàng Nam..."
+                        className="editorial-input"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-sans font-semibold text-stone-600 block mb-1">
+                        Số Tuổi
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={cardState.age || ''}
+                        onChange={(e) => updateField('age', e.target.value)}
+                        placeholder="24"
+                        className="editorial-input"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Font Selector (Clean 4-column grid) */}
+                  <div>
+                    <label className="text-[11px] font-sans font-semibold text-stone-600 block mb-1.5">
+                      Kiểu Chữ Viết Tay
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                      {FONT_OPTIONS.map((f) => (
+                        <button
+                          key={f.id}
+                          onClick={() => updateField('fontFamily', f.id)}
+                          className={`p-2 rounded-xl border text-left transition-all ${
+                            (cardState.fontFamily || 'charm') === f.id
+                              ? 'border-stone-800 bg-stone-900 text-stone-100 shadow-xs'
+                              : 'border-stone-200 bg-white hover:bg-stone-50 text-stone-700'
+                          }`}
+                        >
+                          <div className="text-[10px] font-sans font-medium truncate opacity-75">{f.name.split(' ')[0]}</div>
+                          <div className={`text-sm ${f.class} truncate mt-0.5`}>{f.preview}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tone Chips for Wish Generation */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[11px] font-sans font-semibold text-stone-600">
+                        Gợi Ý Lời Chúc Mẫu (Bấm để tạo tự động)
+                      </label>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {WISH_STYLES.map((ws) => (
+                        <button
+                          key={ws.id}
+                          onClick={() => handleGenerateWishTone(ws.id)}
+                          className="px-2.5 py-1 rounded-full bg-stone-200/70 hover:bg-stone-300 text-stone-800 text-xs font-sans transition-colors flex items-center gap-1 active:scale-95"
+                        >
+                          <Sparkles size={11} className="text-[#B45339]" />
+                          <span>{ws.label}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    <textarea
+                      rows={3}
+                      value={cardState.wishMessage}
+                      onChange={(e) => updateField('wishMessage', e.target.value)}
+                      placeholder="Viết lời chúc từ trái tim của bạn..."
+                      className="editorial-input resize-none font-sans leading-relaxed"
+                    />
+                  </div>
+
+                  {/* Mobile Done Button */}
+                  <div className="pt-2 sm:hidden">
+                    <button
+                      onClick={() => setActivePopover(null)}
+                      className="w-full py-2.5 bg-[#2B2523] text-[#FAF7F2] rounded-xl text-xs font-sans font-semibold tracking-wider uppercase shadow-sm"
+                    >
+                      Xong & Xem Thiệp
+                    </button>
+                  </div>
+                </div>
+              )}
 
             {/* POPOVER 2: GIẤY & MÀU (MINIMAL COLOR DOTS) */}
             {activePopover === 'palette' && (
@@ -635,55 +664,62 @@ export default function FloatingPillBar({
           ═══════════════════════════════════════════════════════ */}
       <div
         id="stationery-pill-bar"
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 select-none max-w-[94%]"
+        className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 select-none max-w-[96%] sm:max-w-max"
       >
-        <div className="floating-pill-bar px-2.5 py-1.5 rounded-full flex items-center gap-1 sm:gap-1.5">
+        <div className="floating-pill-bar px-2 sm:px-2.5 py-1.5 rounded-full flex items-center gap-1 sm:gap-1.5 shadow-xl">
           {/* Pill 1: Viết Thiệp */}
           <button
             onClick={() => togglePopover('write')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-sans font-medium transition-all ${activePopover === 'write'
+            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-sans font-medium transition-all ${
+              activePopover === 'write'
                 ? 'bg-[#2B2523] text-[#FAF7F2] shadow-sm'
                 : 'text-stone-700 hover:bg-stone-200/50'
-              }`}
+            }`}
           >
             <PenLine size={13} />
+            <span className="sm:hidden text-[11px]">Viết</span>
             <span className="hidden sm:inline">Viết thiệp</span>
           </button>
 
           {/* Pill 2: Giấy & Màu */}
           <button
             onClick={() => togglePopover('palette')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-sans font-medium transition-all ${activePopover === 'palette'
+            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-sans font-medium transition-all ${
+              activePopover === 'palette'
                 ? 'bg-[#2B2523] text-[#FAF7F2] shadow-sm'
                 : 'text-stone-700 hover:bg-stone-200/50'
-              }`}
+            }`}
           >
             <Palette size={13} />
+            <span className="sm:hidden text-[11px]">Màu</span>
             <span className="hidden sm:inline">Giấy & Màu</span>
           </button>
 
           {/* Pill 3: Ảnh Polaroid */}
           <button
             onClick={() => togglePopover('photo')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-sans font-medium transition-all ${activePopover === 'photo'
+            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-sans font-medium transition-all ${
+              activePopover === 'photo'
                 ? 'bg-[#2B2523] text-[#FAF7F2] shadow-sm'
                 : 'text-stone-700 hover:bg-stone-200/50'
-              }`}
+            }`}
           >
             <Camera size={13} />
+            <span className="sm:hidden text-[11px]">Ảnh</span>
             <span className="hidden sm:inline">Ảnh Polaroid</span>
           </button>
 
           {/* Pill 4: Nến */}
           <button
             onClick={() => togglePopover('candles')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-sans font-medium transition-all ${activePopover === 'candles'
+            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-sans font-medium transition-all ${
+              activePopover === 'candles'
                 ? 'bg-[#2B2523] text-[#FAF7F2] shadow-sm'
                 : 'text-stone-700 hover:bg-stone-200/50'
-              }`}
+            }`}
           >
             <Flame size={13} />
-            <span className="hidden sm:inline">Nến</span>
+            <span className="text-[11px] sm:text-xs">Nến</span>
           </button>
 
           {/* Divider */}
@@ -692,20 +728,23 @@ export default function FloatingPillBar({
           {/* Pill 5: Chia Sẻ & Xuất */}
           <button
             onClick={() => togglePopover('share')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-sans font-medium transition-all ${activePopover === 'share'
+            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-sans font-medium transition-all ${
+              activePopover === 'share'
                 ? 'bg-[#2B2523] text-[#FAF7F2] shadow-sm'
                 : 'text-stone-700 hover:bg-stone-200/50'
-              }`}
+            }`}
           >
             <Share2 size={13} />
+            <span className="sm:hidden text-[11px]">Chia sẻ</span>
             <span className="hidden sm:inline">Chia sẻ & Xuất</span>
           </button>
 
           {/* Pill 6: Đã Lưu */}
           <button
             onClick={() => togglePopover('saved')}
-            className={`p-1.5 rounded-full transition-all text-stone-600 hover:bg-stone-200/50 ${activePopover === 'saved' ? 'bg-[#2B2523] text-[#FAF7F2]' : ''
-              }`}
+            className={`p-1.5 rounded-full transition-all text-stone-600 hover:bg-stone-200/50 ${
+              activePopover === 'saved' ? 'bg-[#2B2523] text-[#FAF7F2]' : ''
+            }`}
             title="Thiệp đã lưu"
           >
             <Bookmark size={14} />

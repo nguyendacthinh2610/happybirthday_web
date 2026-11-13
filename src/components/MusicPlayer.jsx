@@ -123,7 +123,7 @@ export default function MusicPlayer({ isPlaying, onToggle }) {
   }, [isPlaying, scheduleMelody]);
 
   return (
-    <div className="fixed bottom-6 right-6 z-40 select-none">
+    <div className="fixed top-3 right-3 sm:top-auto sm:bottom-6 sm:right-6 z-40 select-none">
       <motion.button
         whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.94 }}
