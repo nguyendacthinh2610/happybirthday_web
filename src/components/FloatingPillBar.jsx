@@ -26,6 +26,7 @@ import { SAMPLE_PRESETS } from '../data/samplePhotos';
 import { copyTextToClipboard } from '../utils/clipboard';
 import FirebaseModal from './FirebaseModal';
 import { isFirebaseConfigured, uploadImageToFirebase } from '../services/firebase';
+import { uploadToFreeCloud } from '../services/cloudImage';
 
 export default function FloatingPillBar({
   cardState,
@@ -41,6 +42,7 @@ export default function FloatingPillBar({
 }) {
   const [activePopover, setActivePopover] = useState(null); // 'write' | 'palette' | 'photo' | 'candles' | 'share' | 'saved' | null
   const [copied, setCopied] = useState(false);
+  const [generatingLink, setGeneratingLink] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
@@ -93,12 +95,17 @@ export default function FloatingPillBar({
 
   /* ── Copy share URL with universal fallback ── */
   const handleCopyLink = async () => {
-    const url = await generateShareUrl();
-    setShareUrl(url);
-    const ok = await copyTextToClipboard(url);
-    if (ok) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2600);
+    setGeneratingLink(true);
+    try {
+      const url = await generateShareUrl();
+      setShareUrl(url);
+      const ok = await copyTextToClipboard(url);
+      if (ok) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2600);
+      }
+    } finally {
+      setGeneratingLink(false);
     }
   };
 
@@ -429,6 +436,12 @@ export default function FloatingPillBar({
                               if (fireUrl) updateField('uploadedImage', fireUrl);
                             })
                             .catch((err) => console.warn('Firebase upload error:', err));
+                        } else {
+                          uploadToFreeCloud(compressed || file)
+                            .then((cloudUrl) => {
+                              if (cloudUrl) updateField('uploadedImage', cloudUrl);
+                            })
+                            .catch((err) => console.warn('Free cloud upload fallback:', err));
                         }
                       } catch (err) {
                         console.warn('Failed to compress image:', err);
@@ -549,14 +562,29 @@ export default function FloatingPillBar({
                   <div className="flex gap-2">
                     <button
                       onClick={handleCopyLink}
+                      disabled={generatingLink}
                       className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-sans font-semibold flex items-center justify-center gap-1.5 transition-all border ${
                         copied
                           ? 'bg-emerald-700 text-white border-emerald-800 shadow-sm'
                           : 'bg-stone-200/80 hover:bg-stone-200 text-stone-800 border-stone-300'
                       }`}
                     >
-                      {copied ? <Check size={13} className="text-white" /> : <Share2 size={13} />}
-                      <span>{copied ? 'Đã sao chép link thành công!' : 'Sao chép link thiệp'}</span>
+                      {generatingLink ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-stone-600 border-t-transparent rounded-full animate-spin" />
+                          <span>Đang tạo link ngắn...</span>
+                        </>
+                      ) : copied ? (
+                        <>
+                          <Check size={13} className="text-white" />
+                          <span>Đã sao chép link thành công!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Share2 size={13} />
+                          <span>Sao chép link thiệp</span>
+                        </>
+                      )}
                     </button>
 
                     <button

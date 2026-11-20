@@ -14,6 +14,7 @@ import { RotateCcw, Camera, Upload } from 'lucide-react';
 import { compressImage } from '../utils/imageCompressor';
 import { getPresetById } from '../data/samplePhotos';
 import { isFirebaseConfigured, uploadImageToFirebase } from '../services/firebase';
+import { uploadToFreeCloud } from '../services/cloudImage';
 
 export default function CardPreview({ cardState, palette, updateField, isViewMode }) {
   const {
@@ -67,6 +68,12 @@ export default function CardPreview({ cardState, palette, updateField, isViewMod
             if (fireUrl) updateField('uploadedImage', fireUrl);
           })
           .catch((err) => console.warn('Firebase upload fallback:', err));
+      } else {
+        uploadToFreeCloud(compressedDataUrl || file)
+          .then((cloudUrl) => {
+            if (cloudUrl) updateField('uploadedImage', cloudUrl);
+          })
+          .catch((err) => console.warn('Free cloud upload fallback:', err));
       }
     } catch (err) {
       console.warn('Image processing error:', err);

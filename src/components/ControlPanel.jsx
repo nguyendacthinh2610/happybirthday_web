@@ -25,6 +25,7 @@ import { WISH_STYLES, generateWish } from '../data/wishTemplates';
 import { STICKERS } from '../data/stickers';
 import { compressImage } from '../utils/imageCompressor';
 import { isFirebaseConfigured, uploadImageToFirebase } from '../services/firebase';
+import { uploadToFreeCloud } from '../services/cloudImage';
 
 const TABS = [
   { id: 'design', label: 'Thiết Kế', icon: Palette },
@@ -67,6 +68,12 @@ export default function ControlPanel({
               if (fireUrl) updateField('uploadedImage', fireUrl);
             })
             .catch((err) => console.warn('Firebase upload error:', err));
+        } else {
+          uploadToFreeCloud(compressed || file)
+            .then((cloudUrl) => {
+              if (cloudUrl) updateField('uploadedImage', cloudUrl);
+            })
+            .catch((err) => console.warn('Free cloud upload fallback:', err));
         }
       } catch (err) {
         console.warn('Image processing error:', err);

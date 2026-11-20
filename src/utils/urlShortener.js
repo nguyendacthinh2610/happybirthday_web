@@ -1,19 +1,41 @@
 /**
- * Shortens a URL using is.gd free public API (CORS enabled)
- * Falls back cleanly to original URL if offline or network error occurs
+ * Shortens a URL using /api/shorten or direct is.gd API
+ * Produces ultra-short ~19-character links like https://is.gd/xxx
  */
 export async function shortenUrl(longUrl) {
-  if (!longUrl || longUrl.length < 50) return longUrl;
+  if (!longUrl || longUrl.length < 35) return longUrl;
 
+  // 1. Try serverless /api/shorten endpoint (supports is.gd + tinyurl fallback)
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const res = await fetch('/api/shorten', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: longUrl }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.shortUrl && data.shortUrl.startsWith('http') && data.shortUrl !== longUrl) {
+        return data.shortUrl;
+      }
+    }
+  } catch (e) {
+    // Continue to direct client-side fallback
+  }
+
+  // 2. Direct client-side is.gd (Access-Control-Allow-Origin: *)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4500);
 
     const res = await fetch(
       `https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`,
-      {
-        signal: controller.signal,
-      }
+      { signal: controller.signal }
     );
     clearTimeout(timeoutId);
 
@@ -24,7 +46,7 @@ export async function shortenUrl(longUrl) {
       }
     }
   } catch (e) {
-    console.warn('URL shortening fallback to long URL:', e);
+    console.warn('Direct is.gd shortening failed:', e);
   }
 
   return longUrl;
