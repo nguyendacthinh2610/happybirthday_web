@@ -33,6 +33,10 @@ export default async function handler(req, res) {
     const buffer = Buffer.from(cleanBase64, 'base64');
     const filename = `photo_${Date.now()}.jpg`;
 
+    let err1 = null;
+    let err2 = null;
+    let err3 = null;
+
     // Provider 1: Catbox (Permanent free image hosting)
     try {
       const fd = new FormData();
@@ -45,7 +49,7 @@ export default async function handler(req, res) {
         method: 'POST',
         body: fd,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
         },
         signal: controller.signal,
       });
@@ -56,8 +60,12 @@ export default async function handler(req, res) {
         if (text.startsWith('http')) {
           return res.status(200).json({ url: text });
         }
+        err1 = text;
+      } else {
+        err1 = `Status ${upstream.status}: ${await upstream.text()}`;
       }
     } catch (e) {
+      err1 = e.message;
       console.warn('Catbox upload fallback:', e.message);
     }
 
@@ -81,8 +89,12 @@ export default async function handler(req, res) {
           const directUrl = data.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
           return res.status(200).json({ url: directUrl });
         }
+        err2 = JSON.stringify(data);
+      } else {
+        err2 = `Status ${upstream.status}`;
       }
     } catch (e) {
+      err2 = e.message;
       console.warn('Tmpfiles upload fallback:', e.message);
     }
 
@@ -107,12 +119,16 @@ export default async function handler(req, res) {
         if (text.startsWith('http')) {
           return res.status(200).json({ url: text });
         }
+        err3 = text;
+      } else {
+        err3 = `Status ${upstream.status}: ${await upstream.text()}`;
       }
     } catch (e) {
+      err3 = e.message;
       console.warn('Litterbox upload fallback:', e.message);
     }
 
-    return res.status(500).json({ error: 'All cloud upload providers failed' });
+    return res.status(500).json({ error: 'All cloud upload providers failed', details: { catbox: err1, tmpfiles: err2, litter: err3 } });
   } catch (err) {
     return res.status(500).json({ error: err.message || 'Internal server error' });
   }
