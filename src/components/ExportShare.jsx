@@ -39,7 +39,7 @@ export default function ExportShare({ generateShareUrl, cardState }) {
   }, [cardState.recipientName, resolution]);
 
   const handleGenerateAndCopy = useCallback(async () => {
-    const url = generateShareUrl();
+    const url = await generateShareUrl();
     setShareUrl(url);
     try {
       await navigator.clipboard.writeText(url);
@@ -50,9 +50,9 @@ export default function ExportShare({ generateShareUrl, cardState }) {
     }
   }, [generateShareUrl]);
 
-  const handleOpenQr = () => {
+  const handleOpenQr = async () => {
     if (!shareUrl) {
-      const url = generateShareUrl();
+      const url = await generateShareUrl();
       setShareUrl(url);
     }
     setShowQrModal(true);

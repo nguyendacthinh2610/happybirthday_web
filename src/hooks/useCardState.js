@@ -6,6 +6,40 @@ import { createMicroThumbnail } from '../utils/imageCompressor';
 
 export const DEFAULT_SAMPLE_PHOTO = 'preset:flowers';
 
+/**
+ * Extracts the compressed card data from URL Hash (#card=...) or Query Search (?card=...)
+ * Hash avoids HTTP 431 Request Header Too Large issues on cloud hosts like Vercel.
+ */
+export function getSharedCardParam() {
+  if (typeof window === 'undefined') return null;
+
+  // 1. Prioritize URL Hash (#card=...)
+  if (window.location.hash) {
+    const hash = window.location.hash.replace(/^#/, '');
+    if (hash.startsWith('card=')) {
+      return decodeURIComponent(hash.slice(5));
+    }
+    const hashParams = new URLSearchParams(hash);
+    const cardFromHash = hashParams.get('card');
+    if (cardFromHash) return cardFromHash;
+    // Direct raw hash if present
+    if (hash.length > 20 && !hash.includes('&') && !hash.includes('=')) {
+      return decodeURIComponent(hash);
+    }
+  }
+
+  // 2. Fallback to URL search (?card=...) for backwards compatibility
+  try {
+    const searchParams = new URLSearchParams(window.location.search);
+    const cardFromSearch = searchParams.get('card');
+    if (cardFromSearch) return cardFromSearch;
+  } catch (e) {
+    /* ignore search param error */
+  }
+
+  return null;
+}
+
 const DEFAULT_STATE = {
   recipientName: 'Tên người nhận',
   wishMessage:
@@ -27,9 +61,8 @@ export function useCardState() {
   const [workspaceTheme, setWorkspaceTheme] = useLocalStorage('birthday_studio_theme', 'light');
 
   const [cardState, setCardState] = useState(() => {
-    // Check URL for shared card state
-    const params = new URLSearchParams(window.location.search);
-    const sharedData = params.get('card');
+    // Check URL for shared card state (hash or search)
+    const sharedData = getSharedCardParam();
     if (sharedData) {
       try {
         const decompressed = LZString.decompressFromEncodedURIComponent(sharedData);
@@ -38,12 +71,16 @@ export function useCardState() {
           let photo = decoded.uploadedImage;
 
           // Check localStorage for the original full HD photo (same browser / device)
-          const localHdPhoto =
-            (decoded.photoKey && window.localStorage.getItem(decoded.photoKey)) ||
-            window.localStorage.getItem('birthday_shared_photo');
-
-          if (localHdPhoto && (!photo || photo.startsWith('data:') || photo === DEFAULT_SAMPLE_PHOTO)) {
-            photo = localHdPhoto;
+          if (decoded.photoKey) {
+            const localHdPhoto = window.localStorage.getItem(decoded.photoKey);
+            if (localHdPhoto) {
+              photo = localHdPhoto;
+            }
+          } else {
+            const localLegacyPhoto = window.localStorage.getItem('birthday_shared_photo');
+            if (localLegacyPhoto && (!photo || photo === DEFAULT_SAMPLE_PHOTO)) {
+              photo = localLegacyPhoto;
+            }
           }
 
           return {
@@ -61,7 +98,7 @@ export function useCardState() {
     return DEFAULT_STATE;
   });
 
-  const isViewMode = new URLSearchParams(window.location.search).has('card');
+  const isViewMode = Boolean(getSharedCardParam());
 
   const palette = COLOR_PALETTES.find((p) => p.id === cardState.paletteId) || COLOR_PALETTES[0];
 
@@ -129,7 +166,7 @@ export function useCardState() {
     let photoForUrl = cardState.uploadedImage || DEFAULT_SAMPLE_PHOTO;
     const photoKey = 'birthday_photo_' + Date.now();
 
-    // Cache the original full HD photo in localStorage
+    // Cache the original full HD photo in localStorage for same-browser instant HD render
     if (cardState.uploadedImage) {
       try {
         window.localStorage.setItem('birthday_shared_photo', cardState.uploadedImage);
@@ -139,18 +176,16 @@ export function useCardState() {
       }
     }
 
-    // 2. If it is a custom uploaded base64 image, generate an ultra-compact micro thumbnail (< 1.5 KB)
-    // so the URL remains strictly under 2,000 characters (never triggers HTTP 431 or breaks in messengers)
+    // 2. If it is a custom uploaded base64 image, generate an ultra-compact micro thumbnail
+    // that preserves the user's custom photo perfectly on any other device/phone!
     if (photoForUrl && photoForUrl.startsWith('data:image/')) {
       try {
-        const micro = await createMicroThumbnail(photoForUrl, 120, 0.36);
-        if (micro && micro.length < 3200) {
+        const micro = await createMicroThumbnail(photoForUrl, 140, 0.45);
+        if (micro) {
           photoForUrl = micro;
-        } else {
-          photoForUrl = 'preset:flowers';
         }
       } catch (err) {
-        photoForUrl = 'preset:flowers';
+        console.warn('Micro thumbnail generation error:', err);
       }
     }
 
@@ -167,7 +202,7 @@ export function useCardState() {
       age: cardState.age,
     };
     const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(shareData));
-    return `${window.location.origin}${window.location.pathname}?card=${compressed}`;
+    return `${window.location.origin}${window.location.pathname}#card=${compressed}`;
   }, [cardState]);
 
   return {

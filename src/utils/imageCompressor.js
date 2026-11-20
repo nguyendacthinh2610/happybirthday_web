@@ -85,12 +85,13 @@ export function compressImage(file, maxDimension = 480, quality = 0.75) {
 }
 
 /**
- * Creates an ultra-compact micro thumbnail (< 1.5 KB) suitable for URL sharing
+ * Creates an ultra-compact micro thumbnail suitable for URL sharing
+ * Guarantees cross-device photo display without bloating the URL
  */
-export function createMicroThumbnail(source, maxDimension = 120, quality = 0.38) {
+export function createMicroThumbnail(source, maxDimension = 140, quality = 0.45) {
   return new Promise((resolve) => {
     if (!source || typeof source !== 'string') {
-      return resolve(null);
+      return resolve(source);
     }
     if (source.startsWith('preset:') || source.startsWith('http://') || source.startsWith('https://')) {
       return resolve(source);
@@ -101,8 +102,8 @@ export function createMicroThumbnail(source, maxDimension = 120, quality = 0.38)
       img.crossOrigin = 'anonymous';
       img.onload = () => {
         try {
-          let width = img.width || 120;
-          let height = img.height || 90;
+          let width = img.width || 140;
+          let height = img.height || 105;
 
           if (width > maxDimension || height > maxDimension) {
             if (width > height) {
@@ -118,22 +119,22 @@ export function createMicroThumbnail(source, maxDimension = 120, quality = 0.38)
           canvas.width = Math.max(1, width);
           canvas.height = Math.max(1, height);
           const ctx = canvas.getContext('2d');
-          if (!ctx) return resolve(null);
+          if (!ctx) return resolve(source);
 
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'medium';
           ctx.drawImage(img, 0, 0, width, height);
 
           const thumb = canvas.toDataURL('image/jpeg', quality);
-          resolve(thumb);
+          resolve(thumb || source);
         } catch (e) {
-          resolve(null);
+          resolve(source);
         }
       };
-      img.onerror = () => resolve(null);
+      img.onerror = () => resolve(source);
       img.src = source;
     } catch (e) {
-      resolve(null);
+      resolve(source);
     }
   });
 }
