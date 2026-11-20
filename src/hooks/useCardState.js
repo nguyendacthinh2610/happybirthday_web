@@ -8,7 +8,9 @@ import {
   isFirebaseConfigured,
   saveCardToFirestore,
   getCardFromFirestore,
+  uploadImageToFirebase,
 } from '../services/firebase';
+import { uploadToFreeCloud } from '../services/cloudImage';
 
 export const DEFAULT_SAMPLE_PHOTO = 'preset:flowers';
 
@@ -238,15 +240,39 @@ export function useCardState() {
       }
     }
 
-    // 2. If it is a custom uploaded base64 image, generate a sharp, compact thumbnail (280px, 0.68)
+    // 2. If it is a base64 image, upload to cloud to keep URL ultra-short & photo crystal clear!
     if (photoForUrl && photoForUrl.startsWith('data:image/')) {
-      try {
-        const micro = await createMicroThumbnail(photoForUrl, 280, 0.68);
-        if (micro) {
-          photoForUrl = micro;
+      // Try Firebase if user configured it
+      if (isFirebaseConfigured()) {
+        try {
+          const fireUrl = await uploadImageToFirebase(photoForUrl);
+          if (fireUrl) photoForUrl = fireUrl;
+        } catch (e) {
+          console.warn('Firebase upload fallback:', e);
         }
-      } catch (err) {
-        console.warn('Micro thumbnail generation error:', err);
+      }
+
+      // If still base64, automatically upload to free permanent cloud host
+      if (photoForUrl.startsWith('data:image/')) {
+        try {
+          const cloudUrl = await uploadToFreeCloud(photoForUrl);
+          if (cloudUrl) {
+            photoForUrl = cloudUrl;
+            updateField('uploadedImage', cloudUrl);
+          }
+        } catch (e) {
+          console.warn('Free cloud upload error:', e);
+        }
+      }
+
+      // If both fail, fallback to micro thumbnail
+      if (photoForUrl.startsWith('data:image/')) {
+        try {
+          const micro = await createMicroThumbnail(photoForUrl, 160, 0.45);
+          if (micro) photoForUrl = micro;
+        } catch (err) {
+          console.warn('Micro thumbnail generation error:', err);
+        }
       }
     }
 
@@ -292,7 +318,7 @@ export function useCardState() {
     // 5. Shorten URL with is.gd for an ultra-short 19-character short link!
     const shortUrl = await shortenUrl(fullUrl);
     return shortUrl || fullUrl;
-  }, [cardState]);
+  }, [cardState, updateField]);
 
   return {
     cardState,
