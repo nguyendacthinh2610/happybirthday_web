@@ -30,53 +30,49 @@ export default async function handler(req, res) {
     }
 
     const cleanBase64 = image.replace(/^data:image\/[a-z0-9-+.]+;base64,/, '');
-    const buffer = Buffer.from(cleanBase64, 'base64');
-    const filename = `photo_${Date.now()}.jpg`;
 
-    let err1 = null;
-    let err2 = null;
-    let err3 = null;
-
-    // Provider 1: Catbox (Permanent free image hosting)
+    // Provider 1: FreeImage.host (Permanent, crystal-clear HD CDN via iili.io)
     try {
-      const fd = new FormData();
-      fd.append('reqtype', 'fileupload');
-      fd.append('fileToUpload', new Blob([buffer], { type: 'image/jpeg' }), filename);
+      const formData = new FormData();
+      formData.append('key', '6d207e02198a847aa98d0a2a901485a5');
+      formData.append('action', 'upload');
+      formData.append('source', cleanBase64);
+      formData.append('format', 'json');
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 7000);
-      const upstream = await fetch('https://catbox.moe/user/api.php', {
+      const timeout = setTimeout(() => controller.abort(), 9000);
+      const upstream = await fetch('https://freeimage.host/api/1/upload', {
         method: 'POST',
-        body: fd,
+        body: formData,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Referer': 'https://freeimage.host/',
+          'Origin': 'https://freeimage.host',
         },
         signal: controller.signal,
       });
       clearTimeout(timeout);
 
       if (upstream.ok) {
-        const text = (await upstream.text()).trim();
-        if (text.startsWith('http')) {
-          return res.status(200).json({ url: text });
+        const data = await upstream.json();
+        if (data?.image?.url) {
+          return res.status(200).json({ url: data.image.url });
         }
-        err1 = text;
-      } else {
-        err1 = `Status ${upstream.status}: ${await upstream.text()}`;
       }
     } catch (e) {
-      err1 = e.message;
-      console.warn('Catbox upload fallback:', e.message);
+      console.warn('Freeimage upload failed, trying fallbacks...', e.message);
     }
 
-    // Provider 2: Tmpfiles (Instant high-speed direct file hosting)
+    // Provider 2: Uguu.se (Fast CDN fallback)
     try {
+      const buffer = Buffer.from(cleanBase64, 'base64');
       const fd = new FormData();
-      fd.append('file', new Blob([buffer], { type: 'image/jpeg' }), filename);
+      fd.append('files[]', new Blob([buffer], { type: 'image/jpeg' }), `photo_${Date.now()}.jpg`);
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 7000);
-      const upstream = await fetch('https://tmpfiles.org/api/v1/upload', {
+      const upstream = await fetch('https://uguu.se/upload.php', {
         method: 'POST',
         body: fd,
         signal: controller.signal,
@@ -85,50 +81,15 @@ export default async function handler(req, res) {
 
       if (upstream.ok) {
         const data = await upstream.json();
-        if (data?.data?.url) {
-          const directUrl = data.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
-          return res.status(200).json({ url: directUrl });
+        if (data?.success && data?.files?.[0]?.url) {
+          return res.status(200).json({ url: data.files[0].url });
         }
-        err2 = JSON.stringify(data);
-      } else {
-        err2 = `Status ${upstream.status}`;
       }
     } catch (e) {
-      err2 = e.message;
-      console.warn('Tmpfiles upload fallback:', e.message);
+      console.warn('Uguu upload fallback error:', e.message);
     }
 
-    // Provider 3: Litterbox
-    try {
-      const fd = new FormData();
-      fd.append('reqtype', 'fileupload');
-      fd.append('time', '72h');
-      fd.append('fileToUpload', new Blob([buffer], { type: 'image/jpeg' }), filename);
-
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 7000);
-      const upstream = await fetch('https://litterbox.catbox.moe/resources/internals/api.php', {
-        method: 'POST',
-        body: fd,
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-
-      if (upstream.ok) {
-        const text = (await upstream.text()).trim();
-        if (text.startsWith('http')) {
-          return res.status(200).json({ url: text });
-        }
-        err3 = text;
-      } else {
-        err3 = `Status ${upstream.status}: ${await upstream.text()}`;
-      }
-    } catch (e) {
-      err3 = e.message;
-      console.warn('Litterbox upload fallback:', e.message);
-    }
-
-    return res.status(500).json({ error: 'All cloud upload providers failed', details: { catbox: err1, tmpfiles: err2, litter: err3 } });
+    return res.status(500).json({ error: 'All cloud upload providers failed' });
   } catch (err) {
     return res.status(500).json({ error: err.message || 'Internal server error' });
   }

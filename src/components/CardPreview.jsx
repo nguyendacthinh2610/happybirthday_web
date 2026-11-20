@@ -57,7 +57,7 @@ export default function CardPreview({ cardState, palette, updateField, isViewMod
     if (!file) return;
     try {
       // 1. Instantly display sharp local preview
-      const compressedDataUrl = await compressImage(file, 640, 0.85);
+      const compressedDataUrl = await compressImage(file, 960, 0.9);
       if (compressedDataUrl) {
         updateField('uploadedImage', compressedDataUrl);
       }

@@ -24,7 +24,7 @@ export async function uploadToFreeCloud(fileOrBase64) {
     // 1. Try Vercel Serverless /api/upload endpoint (Same origin = zero CORS issues)
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), 14000);
 
       const res = await fetch('/api/upload', {
         method: 'POST',

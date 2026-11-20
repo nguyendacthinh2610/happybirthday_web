@@ -426,7 +426,7 @@ export default function FloatingPillBar({
                       const file = e.target.files?.[0];
                       if (!file) return;
                       try {
-                        const compressed = await compressImage(file, 640, 0.85);
+                        const compressed = await compressImage(file, 960, 0.9);
                         if (compressed) {
                           updateField('uploadedImage', compressed);
                         }

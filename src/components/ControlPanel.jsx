@@ -58,7 +58,7 @@ export default function ControlPanel({
     async (file) => {
       if (!file || !file.type.startsWith('image/')) return;
       try {
-        const compressed = await compressImage(file, 640, 0.85);
+        const compressed = await compressImage(file, 960, 0.9);
         if (compressed) {
           updateField('uploadedImage', compressed);
         }

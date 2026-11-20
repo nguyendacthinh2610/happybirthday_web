@@ -265,10 +265,10 @@ export function useCardState() {
         }
       }
 
-      // If both fail, fallback to micro thumbnail (<600 bytes) so URL NEVER exceeds URL limits
+      // If both fail, fallback to sharp thumbnail (360px, 0.72)
       if (photoForUrl.startsWith('data:image/')) {
         try {
-          const micro = await createMicroThumbnail(photoForUrl, 64, 0.35);
+          const micro = await createMicroThumbnail(photoForUrl, 360, 0.72);
           if (micro) photoForUrl = micro;
         } catch (err) {
           console.warn('Micro thumbnail generation error:', err);
