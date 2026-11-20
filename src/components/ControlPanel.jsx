@@ -23,6 +23,8 @@ import { CARD_TEMPLATES, FONT_OPTIONS } from '../data/templates';
 import { COLOR_PALETTES } from '../data/colorPalettes';
 import { WISH_STYLES, generateWish } from '../data/wishTemplates';
 import { STICKERS } from '../data/stickers';
+import { compressImage } from '../utils/imageCompressor';
+import { isFirebaseConfigured, uploadImageToFirebase } from '../services/firebase';
 
 const TABS = [
   { id: 'design', label: 'Thiết Kế', icon: Palette },
@@ -52,11 +54,23 @@ export default function ControlPanel({
 
   /* ── Image Upload Handling ── */
   const handleFile = useCallback(
-    (file) => {
+    async (file) => {
       if (!file || !file.type.startsWith('image/')) return;
-      const reader = new FileReader();
-      reader.onload = (e) => updateField('uploadedImage', e.target.result);
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImage(file, 640, 0.85);
+        if (compressed) {
+          updateField('uploadedImage', compressed);
+        }
+        if (isFirebaseConfigured()) {
+          uploadImageToFirebase(file)
+            .then((fireUrl) => {
+              if (fireUrl) updateField('uploadedImage', fireUrl);
+            })
+            .catch((err) => console.warn('Firebase upload error:', err));
+        }
+      } catch (err) {
+        console.warn('Image processing error:', err);
+      }
     },
     [updateField]
   );

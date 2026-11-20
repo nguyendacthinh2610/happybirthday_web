@@ -85,10 +85,10 @@ export function compressImage(file, maxDimension = 480, quality = 0.75) {
 }
 
 /**
- * Creates an ultra-compact micro thumbnail suitable for URL sharing
- * Guarantees cross-device photo display without bloating the URL
+ * Creates a crisp, high-clarity thumbnail suitable for URL sharing
+ * Sharp on Retina & modern mobile displays without triggering HTTP limits
  */
-export function createMicroThumbnail(source, maxDimension = 140, quality = 0.45) {
+export function createMicroThumbnail(source, maxDimension = 320, quality = 0.72) {
   return new Promise((resolve) => {
     if (!source || typeof source !== 'string') {
       return resolve(source);
@@ -102,8 +102,8 @@ export function createMicroThumbnail(source, maxDimension = 140, quality = 0.45)
       img.crossOrigin = 'anonymous';
       img.onload = () => {
         try {
-          let width = img.width || 140;
-          let height = img.height || 105;
+          let width = img.width || 320;
+          let height = img.height || 240;
 
           if (width > maxDimension || height > maxDimension) {
             if (width > height) {
@@ -122,7 +122,7 @@ export function createMicroThumbnail(source, maxDimension = 140, quality = 0.45)
           if (!ctx) return resolve(source);
 
           ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'medium';
+          ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(img, 0, 0, width, height);
 
           const thumb = canvas.toDataURL('image/jpeg', quality);

@@ -13,6 +13,7 @@ import {
 import { RotateCcw, Camera, Upload } from 'lucide-react';
 import { compressImage } from '../utils/imageCompressor';
 import { getPresetById } from '../data/samplePhotos';
+import { isFirebaseConfigured, uploadImageToFirebase } from '../services/firebase';
 
 export default function CardPreview({ cardState, palette, updateField, isViewMode }) {
   const {
@@ -54,9 +55,18 @@ export default function CardPreview({ cardState, palette, updateField, isViewMod
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const compressedDataUrl = await compressImage(file, 500, 0.78);
+      // 1. Instantly display sharp local preview
+      const compressedDataUrl = await compressImage(file, 640, 0.85);
       if (compressedDataUrl) {
         updateField('uploadedImage', compressedDataUrl);
+      }
+      // 2. If Firebase Storage is configured, upload for crystal-clear original resolution
+      if (isFirebaseConfigured()) {
+        uploadImageToFirebase(file)
+          .then((fireUrl) => {
+            if (fireUrl) updateField('uploadedImage', fireUrl);
+          })
+          .catch((err) => console.warn('Firebase upload fallback:', err));
       }
     } catch (err) {
       console.warn('Image processing error:', err);

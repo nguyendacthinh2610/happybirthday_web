@@ -15,6 +15,7 @@ import {
   Download,
   QrCode,
   Trash2,
+  Cloud,
 } from 'lucide-react';
 import { COLOR_PALETTES } from '../data/colorPalettes';
 import { CARD_TEMPLATES, FONT_OPTIONS } from '../data/templates';
@@ -23,6 +24,8 @@ import { toPng } from 'html-to-image';
 import { compressImage } from '../utils/imageCompressor';
 import { SAMPLE_PRESETS } from '../data/samplePhotos';
 import { copyTextToClipboard } from '../utils/clipboard';
+import FirebaseModal from './FirebaseModal';
+import { isFirebaseConfigured, uploadImageToFirebase } from '../services/firebase';
 
 export default function FloatingPillBar({
   cardState,
@@ -42,6 +45,8 @@ export default function FloatingPillBar({
   const [showQr, setShowQr] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
   const [resolution, setResolution] = useState(2);
+  const [showFirebaseModal, setShowFirebaseModal] = useState(false);
+  const [firebaseReady, setFirebaseReady] = useState(isFirebaseConfigured());
   const fileInputRef = useRef(null);
   const popoverRef = useRef(null);
 
@@ -414,9 +419,16 @@ export default function FloatingPillBar({
                       const file = e.target.files?.[0];
                       if (!file) return;
                       try {
-                        const compressed = await compressImage(file, 500, 0.78);
+                        const compressed = await compressImage(file, 640, 0.85);
                         if (compressed) {
                           updateField('uploadedImage', compressed);
+                        }
+                        if (isFirebaseConfigured()) {
+                          uploadImageToFirebase(file)
+                            .then((fireUrl) => {
+                              if (fireUrl) updateField('uploadedImage', fireUrl);
+                            })
+                            .catch((err) => console.warn('Firebase upload error:', err));
                         }
                       } catch (err) {
                         console.warn('Failed to compress image:', err);
@@ -425,6 +437,22 @@ export default function FloatingPillBar({
                       }
                     }}
                   />
+
+                  {/* Firebase Cloud Option for 100% Original Quality */}
+                  <div className="mt-2.5 p-2 bg-stone-100 rounded-lg flex items-center justify-between border border-stone-200/80">
+                    <div className="flex items-center gap-1.5 text-[11px] text-stone-700">
+                      <Cloud size={13} className={firebaseReady ? 'text-emerald-600' : 'text-amber-600'} />
+                      <span className="font-sans">
+                        {firebaseReady ? 'Firebase: Ảnh nét 100% 4K' : 'Chất lượng ảnh: Nén sắc nét (320px)'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setShowFirebaseModal(true)}
+                      className="text-[10px] text-amber-800 hover:text-amber-900 font-semibold underline font-sans"
+                    >
+                      {firebaseReady ? 'Cài đặt' : 'Dùng Firebase'}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
@@ -761,6 +789,13 @@ export default function FloatingPillBar({
           </button>
         </div>
       </div>
+
+      {/* Firebase Storage Configuration Modal */}
+      <FirebaseModal
+        isOpen={showFirebaseModal}
+        onClose={() => setShowFirebaseModal(false)}
+        onConfigSaved={(ready) => setFirebaseReady(ready)}
+      />
     </>
   );
 }

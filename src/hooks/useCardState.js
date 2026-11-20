@@ -176,11 +176,11 @@ export function useCardState() {
       }
     }
 
-    // 2. If it is a custom uploaded base64 image, generate an ultra-compact micro thumbnail
-    // that preserves the user's custom photo perfectly on any other device/phone!
+    // 2. If it is a custom uploaded base64 image, generate an ultra-crisp thumbnail (320px, 0.72)
+    // that preserves high visual clarity and sharpness on Retina and smartphone displays!
     if (photoForUrl && photoForUrl.startsWith('data:image/')) {
       try {
-        const micro = await createMicroThumbnail(photoForUrl, 140, 0.45);
+        const micro = await createMicroThumbnail(photoForUrl, 320, 0.72);
         if (micro) {
           photoForUrl = micro;
         }
