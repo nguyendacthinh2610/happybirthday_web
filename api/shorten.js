@@ -18,6 +18,14 @@ export default async function handler(req, res) {
     } catch (e) {}
   }
 
+  if (req.query?.check_env) {
+    const keys = Object.keys(process.env).filter(k => !k.includes('SECRET') && !k.includes('KEY') && !k.includes('AUTH') && !k.includes('TOKEN'));
+    const hasBlob = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+    const hasKv = Boolean(process.env.KV_REST_API_URL);
+    const hasStorage = Boolean(process.env.FIREBASE_STORAGE_BUCKET || process.env.VITE_FIREBASE_STORAGE_BUCKET);
+    return res.status(200).json({ hasBlob, hasKv, hasStorage, keys: keys.slice(0, 10) });
+  }
+
   const longUrl = req.query?.url || body?.url;
   if (!longUrl) {
     return res.status(400).json({ error: 'url is required' });
