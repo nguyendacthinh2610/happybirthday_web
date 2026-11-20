@@ -31,17 +31,71 @@ export default async function handler(req, res) {
 
     const cleanBase64 = image.replace(/^data:image\/[a-z0-9-+.]+;base64,/, '');
     const buffer = Buffer.from(cleanBase64, 'base64');
-    const file = new File([buffer], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
+    const filename = `photo_${Date.now()}.jpg`;
 
-    // 1. Upload to Catbox (Permanent free high-speed image hosting)
+    // Provider 1: Catbox (Permanent free image hosting)
     try {
       const fd = new FormData();
       fd.append('reqtype', 'fileupload');
-      fd.append('fileToUpload', file);
+      fd.append('fileToUpload', new Blob([buffer], { type: 'image/jpeg' }), filename);
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 9000);
+      const timeout = setTimeout(() => controller.abort(), 7000);
       const upstream = await fetch('https://catbox.moe/user/api.php', {
+        method: 'POST',
+        body: fd,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (upstream.ok) {
+        const text = (await upstream.text()).trim();
+        if (text.startsWith('http')) {
+          return res.status(200).json({ url: text });
+        }
+      }
+    } catch (e) {
+      console.warn('Catbox upload fallback:', e.message);
+    }
+
+    // Provider 2: Tmpfiles (Instant high-speed direct file hosting)
+    try {
+      const fd = new FormData();
+      fd.append('file', new Blob([buffer], { type: 'image/jpeg' }), filename);
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 7000);
+      const upstream = await fetch('https://tmpfiles.org/api/v1/upload', {
+        method: 'POST',
+        body: fd,
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (upstream.ok) {
+        const data = await upstream.json();
+        if (data?.data?.url) {
+          const directUrl = data.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
+          return res.status(200).json({ url: directUrl });
+        }
+      }
+    } catch (e) {
+      console.warn('Tmpfiles upload fallback:', e.message);
+    }
+
+    // Provider 3: Litterbox
+    try {
+      const fd = new FormData();
+      fd.append('reqtype', 'fileupload');
+      fd.append('time', '72h');
+      fd.append('fileToUpload', new Blob([buffer], { type: 'image/jpeg' }), filename);
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 7000);
+      const upstream = await fetch('https://litterbox.catbox.moe/resources/internals/api.php', {
         method: 'POST',
         body: fd,
         signal: controller.signal,
@@ -54,34 +108,8 @@ export default async function handler(req, res) {
           return res.status(200).json({ url: text });
         }
       }
-    } catch (catboxErr) {
-      console.warn('Catbox upload error, trying litterbox...', catboxErr);
-    }
-
-    // 2. Fallback to Litterbox
-    try {
-      const fd2 = new FormData();
-      fd2.append('reqtype', 'fileupload');
-      fd2.append('time', '72h');
-      fd2.append('fileToUpload', file);
-
-      const controller2 = new AbortController();
-      const timeout2 = setTimeout(() => controller2.abort(), 9000);
-      const upstream2 = await fetch('https://litterbox.catbox.moe/resources/internals/api.php', {
-        method: 'POST',
-        body: fd2,
-        signal: controller2.signal,
-      });
-      clearTimeout(timeout2);
-
-      if (upstream2.ok) {
-        const text2 = (await upstream2.text()).trim();
-        if (text2.startsWith('http')) {
-          return res.status(200).json({ url: text2 });
-        }
-      }
-    } catch (litterErr) {
-      console.warn('Litterbox upload error:', litterErr);
+    } catch (e) {
+      console.warn('Litterbox upload fallback:', e.message);
     }
 
     return res.status(500).json({ error: 'All cloud upload providers failed' });
