@@ -90,13 +90,15 @@ export default function CardPreview({ cardState, palette, updateField, isViewMod
       }}
     >
       {/* Hidden file picker for direct click-to-upload on Polaroid */}
-      <input
-        ref={photoInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handlePhotoUpload}
-      />
+      {!isViewMode && (
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handlePhotoUpload}
+        />
+      )}
 
       {/* Bi-fold Center Crease Spine Shadow (Nếp gấp giữa hai cánh thiệp) */}
       <div className="hidden md:block bifold-spine-shadow" />
@@ -127,14 +129,18 @@ export default function CardPreview({ cardState, palette, updateField, isViewMod
             />
           </div>
 
-          {/* Centerpiece: Polaroid Photo with Washi Tape (Click to upload) */}
+          {/* Centerpiece: Polaroid Photo with Washi Tape */}
           <div className="my-auto py-4 flex flex-col items-center">
             <motion.div
               initial={{ rotate: -2 }}
               whileHover={{ rotate: 0, scale: 1.025 }}
-              onClick={() => photoInputRef.current?.click()}
-              className="group relative bg-[#FFFFFF] p-3 pb-5 rounded-sm shadow-[0_10px_25px_rgba(45,35,30,0.12)] border border-stone-200/80 max-w-[230px] cursor-pointer"
-              title="Nhấp để thay ảnh kỷ niệm của bạn"
+              onClick={() => {
+                if (!isViewMode) photoInputRef.current?.click();
+              }}
+              className={`group relative bg-[#FFFFFF] p-3 pb-5 rounded-sm shadow-[0_10px_25px_rgba(45,35,30,0.12)] border border-stone-200/80 max-w-[230px] ${
+                !isViewMode ? 'cursor-pointer' : 'cursor-default'
+              }`}
+              title={!isViewMode ? 'Nhấp để thay ảnh kỷ niệm của bạn' : undefined}
             >
               {/* Translucent Japanese Washi Tape on top */}
               <div
@@ -156,11 +162,13 @@ export default function CardPreview({ cardState, palette, updateField, isViewMod
                   getPresetById('preset:flowers').render()
                 )}
 
-                {/* Hover overlay hint */}
-                <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white p-2 text-center pointer-events-none">
-                  <Camera size={18} className="mb-1" />
-                  <span className="text-[10px] font-sans font-medium">Nhấp để đổi ảnh</span>
-                </div>
+                {/* Hover overlay hint: ONLY in editor mode, never in view mode for recipients */}
+                {!isViewMode && (
+                  <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white p-2 text-center pointer-events-none">
+                    <Camera size={18} className="mb-1" />
+                    <span className="text-[10px] font-sans font-medium">Nhấp để đổi ảnh</span>
+                  </div>
+                )}
               </div>
 
               {/* Handwritten Polaroid Caption */}
