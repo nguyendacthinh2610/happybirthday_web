@@ -3,41 +3,84 @@ import { useLocalStorage } from './useLocalStorage';
 import { COLOR_PALETTES, TEMPLATE_PALETTES } from '../data/colorPalettes';
 import LZString from 'lz-string';
 import { createMicroThumbnail } from '../utils/imageCompressor';
+import { shortenUrl } from '../utils/urlShortener';
+import {
+  isFirebaseConfigured,
+  saveCardToFirestore,
+  getCardFromFirestore,
+} from '../services/firebase';
 
 export const DEFAULT_SAMPLE_PHOTO = 'preset:flowers';
 
 /**
- * Extracts the compressed card data from URL Hash (#card=...) or Query Search (?card=...)
- * Hash avoids HTTP 431 Request Header Too Large issues on cloud hosts like Vercel.
+ * Extracts card reference:
+ * - { type: 'firestore', value: id } for ?id=xyz or #id=xyz
+ * - { type: 'compressed', value: lzString } for #c=xyz, #card=xyz, ?c=xyz, ?card=xyz
  */
 export function getSharedCardParam() {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === 'undefined') return { type: null, value: null };
 
-  // 1. Prioritize URL Hash (#card=...)
+  const searchParams = new URLSearchParams(window.location.search);
+  const idFromSearch = searchParams.get('id');
+  if (idFromSearch) {
+    return { type: 'firestore', value: idFromSearch };
+  }
+
+  // 1. Prioritize URL Hash (#id=... or #c=... or #card=...)
   if (window.location.hash) {
     const hash = window.location.hash.replace(/^#/, '');
+    if (hash.startsWith('id=')) {
+      return { type: 'firestore', value: hash.slice(3) };
+    }
+    if (hash.startsWith('c=')) {
+      return { type: 'compressed', value: decodeURIComponent(hash.slice(2)) };
+    }
     if (hash.startsWith('card=')) {
-      return decodeURIComponent(hash.slice(5));
+      return { type: 'compressed', value: decodeURIComponent(hash.slice(5)) };
     }
     const hashParams = new URLSearchParams(hash);
-    const cardFromHash = hashParams.get('card');
-    if (cardFromHash) return cardFromHash;
+    if (hashParams.get('id')) return { type: 'firestore', value: hashParams.get('id') };
+    if (hashParams.get('c')) return { type: 'compressed', value: hashParams.get('c') };
+    if (hashParams.get('card')) return { type: 'compressed', value: hashParams.get('card') };
     // Direct raw hash if present
     if (hash.length > 20 && !hash.includes('&') && !hash.includes('=')) {
-      return decodeURIComponent(hash);
+      return { type: 'compressed', value: decodeURIComponent(hash) };
     }
   }
 
-  // 2. Fallback to URL search (?card=...) for backwards compatibility
+  // 2. Fallback to URL search (?c=... or ?card=...)
   try {
-    const searchParams = new URLSearchParams(window.location.search);
-    const cardFromSearch = searchParams.get('card');
-    if (cardFromSearch) return cardFromSearch;
+    if (searchParams.get('c')) {
+      return { type: 'compressed', value: searchParams.get('c') };
+    }
+    if (searchParams.get('card')) {
+      return { type: 'compressed', value: searchParams.get('card') };
+    }
   } catch (e) {
     /* ignore search param error */
   }
 
-  return null;
+  return { type: null, value: null };
+}
+
+export function normalizeCardData(decoded) {
+  if (!decoded) return {};
+  return {
+    recipientName: decoded.recipientName ?? decoded.n ?? 'Tên người nhận',
+    wishMessage:
+      decoded.wishMessage ??
+      decoded.m ??
+      'Chúc bạn một ngày sinh nhật thật ấm áp, bình an và ngập tràn những niềm vui giản dị nhất.',
+    wishStyle: decoded.wishStyle ?? decoded.s ?? 'emotional',
+    template: decoded.template ?? decoded.t ?? 'botanical',
+    paletteId: decoded.paletteId ?? decoded.p ?? 'alabaster',
+    fontFamily: decoded.fontFamily ?? decoded.f ?? 'charm',
+    polaroidCaption: decoded.polaroidCaption ?? decoded.c ?? 'Kỷ niệm khó quên ✨',
+    candleCount: decoded.candleCount ?? decoded.k ?? 5,
+    uploadedImage: decoded.uploadedImage ?? decoded.i ?? DEFAULT_SAMPLE_PHOTO,
+    photoKey: decoded.photoKey,
+    age: decoded.age ?? decoded.a ?? '--',
+  };
 }
 
 const DEFAULT_STATE = {
@@ -63,12 +106,13 @@ export function useCardState() {
   const [cardState, setCardState] = useState(() => {
     // Check URL for shared card state (hash or search)
     const sharedData = getSharedCardParam();
-    if (sharedData) {
+    if (sharedData.type === 'compressed' && sharedData.value) {
       try {
-        const decompressed = LZString.decompressFromEncodedURIComponent(sharedData);
+        const decompressed = LZString.decompressFromEncodedURIComponent(sharedData.value);
         if (decompressed) {
           const decoded = JSON.parse(decompressed);
-          let photo = decoded.uploadedImage;
+          const normalized = normalizeCardData(decoded);
+          let photo = normalized.uploadedImage;
 
           // Check localStorage for the original full HD photo (same browser / device)
           if (decoded.photoKey) {
@@ -85,7 +129,7 @@ export function useCardState() {
 
           return {
             ...DEFAULT_STATE,
-            ...decoded,
+            ...normalized,
             envelopeOpen: false,
             candlesBlown: false,
             uploadedImage: photo || DEFAULT_SAMPLE_PHOTO,
@@ -98,7 +142,25 @@ export function useCardState() {
     return DEFAULT_STATE;
   });
 
-  const isViewMode = Boolean(getSharedCardParam());
+  const isViewMode = Boolean(getSharedCardParam().type);
+
+  // Asynchronously load card if shared via Firestore short id (?id=...)
+  useEffect(() => {
+    const shared = getSharedCardParam();
+    if (shared.type === 'firestore' && shared.value) {
+      getCardFromFirestore(shared.value).then((remoteData) => {
+        if (remoteData) {
+          const normalized = normalizeCardData(remoteData);
+          setCardState((prev) => ({
+            ...prev,
+            ...normalized,
+            envelopeOpen: false,
+            candlesBlown: false,
+          }));
+        }
+      });
+    }
+  }, []);
 
   const palette = COLOR_PALETTES.find((p) => p.id === cardState.paletteId) || COLOR_PALETTES[0];
 
@@ -176,11 +238,10 @@ export function useCardState() {
       }
     }
 
-    // 2. If it is a custom uploaded base64 image, generate an ultra-crisp thumbnail (320px, 0.72)
-    // that preserves high visual clarity and sharpness on Retina and smartphone displays!
+    // 2. If it is a custom uploaded base64 image, generate a sharp, compact thumbnail (280px, 0.68)
     if (photoForUrl && photoForUrl.startsWith('data:image/')) {
       try {
-        const micro = await createMicroThumbnail(photoForUrl, 320, 0.72);
+        const micro = await createMicroThumbnail(photoForUrl, 280, 0.68);
         if (micro) {
           photoForUrl = micro;
         }
@@ -189,20 +250,48 @@ export function useCardState() {
       }
     }
 
-    const shareData = {
-      recipientName: cardState.recipientName,
-      wishMessage: cardState.wishMessage,
-      template: cardState.template,
-      paletteId: cardState.paletteId,
-      fontFamily: cardState.fontFamily,
-      polaroidCaption: cardState.polaroidCaption,
-      candleCount: cardState.candleCount,
-      uploadedImage: photoForUrl,
+    // 3. If Firebase is configured, save directly to Firestore for an ultra-short branded ID link!
+    if (isFirebaseConfigured()) {
+      try {
+        const cardId = await saveCardToFirestore({
+          recipientName: cardState.recipientName,
+          wishMessage: cardState.wishMessage,
+          template: cardState.template,
+          paletteId: cardState.paletteId,
+          fontFamily: cardState.fontFamily,
+          polaroidCaption: cardState.polaroidCaption,
+          candleCount: cardState.candleCount,
+          uploadedImage: photoForUrl,
+          age: cardState.age,
+        });
+        if (cardId) {
+          return `${window.location.origin}${window.location.pathname}?id=${cardId}`;
+        }
+      } catch (firestoreErr) {
+        console.warn('Firestore save fallback to self-contained URL:', firestoreErr);
+      }
+    }
+
+    // 4. Compact self-contained data payload (minified keys)
+    const compactData = {
+      n: cardState.recipientName,
+      m: cardState.wishMessage,
+      t: cardState.template,
+      p: cardState.paletteId,
+      f: cardState.fontFamily,
+      c: cardState.polaroidCaption,
+      k: cardState.candleCount,
+      i: photoForUrl,
       photoKey: photoKey,
-      age: cardState.age,
+      a: cardState.age,
     };
-    const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(shareData));
-    return `${window.location.origin}${window.location.pathname}#card=${compressed}`;
+
+    const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(compactData));
+    const fullUrl = `${window.location.origin}${window.location.pathname}#c=${compressed}`;
+
+    // 5. Shorten URL with is.gd for an ultra-short 19-character short link!
+    const shortUrl = await shortenUrl(fullUrl);
+    return shortUrl || fullUrl;
   }, [cardState]);
 
   return {

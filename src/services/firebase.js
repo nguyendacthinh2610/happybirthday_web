@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getStorage, ref, uploadString, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
 
 // Default Firebase configuration from environment or localStorage
 export function getFirebaseConfig() {
@@ -69,4 +70,43 @@ export async function uploadImageToFirebase(fileOrBase64) {
 
   const downloadUrl = await getDownloadURL(storageRef);
   return downloadUrl;
+}
+
+/**
+ * Saves full card data to Firestore and returns an ultra-short 6-char ID
+ */
+export async function saveCardToFirestore(cardData) {
+  const config = getFirebaseConfig();
+  if (!config) throw new Error('Firebase chưa được cấu hình');
+
+  const app = getApps().length === 0 ? initializeApp(config) : getApp();
+  const db = getFirestore(app);
+
+  const cardId = Math.random().toString(36).substring(2, 8);
+  await setDoc(doc(db, 'cards', cardId), {
+    ...cardData,
+    createdAt: Date.now(),
+  });
+  return cardId;
+}
+
+/**
+ * Loads card data from Firestore by its short ID
+ */
+export async function getCardFromFirestore(cardId) {
+  try {
+    const config = getFirebaseConfig();
+    if (!config) return null;
+
+    const app = getApps().length === 0 ? initializeApp(config) : getApp();
+    const db = getFirestore(app);
+
+    const docSnap = await getDoc(doc(db, 'cards', cardId));
+    if (docSnap.exists()) {
+      return docSnap.data();
+    }
+  } catch (err) {
+    console.warn('Error fetching card from Firestore:', err);
+  }
+  return null;
 }
